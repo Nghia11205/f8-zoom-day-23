@@ -44,7 +44,6 @@ todoAppForm.onsubmit = function (event) {
     };
     //Nếu có editIndex -> Thực hiện logic sửa
     if (editIndex !== null && editIndex !== undefined) {
-        // Phần này em không biết làm em dùng AI em đang coi lại ạ.
         const isDuplicate = todoTasks.some((task, index) => {
             return index !== editIndex && task.title === formData.title;
         });
