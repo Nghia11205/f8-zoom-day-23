@@ -16,7 +16,7 @@ const tabList = $(".tab-list");
 //---------------
 const todoTasks = JSON.parse(localStorage.getItem("todoTasks")) ?? [];
 function openModal() {
-    addTaskModal.className = "modal-overlay show";
+    addTaskModal.classList.toggle("show");
 }
 todoAdd.onclick = function (event) {
     event.preventDefault();
@@ -205,11 +205,11 @@ function activeTarget(target) {
 function renderTasks(tasks = todoTasks) {
     const html = tasks
         .map(
-            (task, index) => `<div class="task-card ${task.cardColor} ${
-                task.isCompleted ? "completed" : ""
-            }">
+            (task, index) => `<div class="task-card ${escapeHTML(
+                task.cardColor
+            )} ${task.isCompleted ? "completed" : ""}">
                 <div class="task-header">
-                    <h3 class="task-title">${task.title}</h3>
+                    <h3 class="task-title">${escapeHTML(task.title)}</h3>
                     <button class="task-menu">
                         <i class="fa-solid fa-ellipsis fa-icon"></i>
                         <div class="dropdown-menu">
@@ -230,7 +230,7 @@ function renderTasks(tasks = todoTasks) {
                         </div>
                     </button>
                 </div>
-                <p class="task-description">${task.description}</p>
+                <p class="task-description">${escapeHTML(task.description)}</p>
                 <div class="task-time">${task.startTime} - ${task.endTime}</div>
             </div>`
         )
@@ -239,7 +239,7 @@ function renderTasks(tasks = todoTasks) {
     todoList.innerHTML = html;
 }
 function closeModal() {
-    addTaskModal.className = "modal-overlay";
+    addTaskModal.classList.toggle("show");
 
     //Bước 3(edit) khi đóng thì trả lại giá trị ban đầu cho title và create.
     const formTitle = addTaskModal.querySelector(".modal-title");
@@ -289,3 +289,16 @@ $(`.btn-primary`).onclick = function (event) {
 };
 
 renderTasks();
+function escapeHTML(html) {
+    const div = document.createElement("div");
+    div.textContent = html;
+    return div.innerHTML;
+}
+
+const modal = $(".modal");
+console.log(modal);
+addTaskModal.onclick = function (e) {
+    if (!e.target.closest(".modal")) {
+        this.classList.toggle("show");
+    }
+};
