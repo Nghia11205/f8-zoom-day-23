@@ -264,7 +264,7 @@ async function renderTasks(tasks = todoTasks) {
                     <button class="task-menu">
                         <i class="fa-solid fa-ellipsis fa-icon"></i>
                         <div class="dropdown-menu">
-                            <div class="dropdown-item edit-btn" data-id="${index}">
+                            <div class="dropdown-item edit-btn" data-index="${index}">
                                 <i class="fa-solid fa-pen-to-square fa-icon"></i>
                                 Edit
                             </div>
@@ -276,7 +276,9 @@ async function renderTasks(tasks = todoTasks) {
                                     task.isCompleted ? "Active" : "Complete"
                                 }
                             </div>
-                            <div class="dropdown-item delete delete-btn" data-index="${index}">
+                            <div class="dropdown-item delete delete-btn" data-id="${
+                                task.id
+                            }">
                                 <i class="fa-solid fa-trash fa-icon"></i>
                                 Delete
                             </div>
