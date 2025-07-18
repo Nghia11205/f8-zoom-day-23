@@ -1,3 +1,4 @@
+// const { act } = require("react");
 const $ = document.querySelector.bind(document);
 const $$ = document.querySelectorAll.bind(document);
 const addTaskModal = $("#addTaskModal");
@@ -13,38 +14,21 @@ let editIndex = null;
 const todoSearch = $(".search-input");
 const tabList = $(".tab-list");
 //---------------
-let todoTasks = [];
-
-async function loadTasks() {
-    try {
-        const response = await fetch(
-            `http://localhost:3000/tasks?_sort=-createdAt`
-        );
-        const data = await response.json();
-        todoTasks = data;
-        renderTasks();
-    } catch (error) {
-        console.error("Lỗi fetch:", error);
-        showToast("Không thể tải task từ server", "error");
-    }
-}
-loadTasks();
-
 function openModal() {
     addTaskModal.classList.toggle("show");
-    setTimeout(() => {
-        inputElement.focus();
-    }, 300);
 }
 todoAdd.onclick = function (event) {
     event.preventDefault();
     // Focus input dau tien khi mo modal
     // Hien thi modal
     openModal();
+    setTimeout(() => {
+        inputElement.focus();
+    }, 300);
 };
 
 // Xu ly su kien submit form
-todoAppForm.onsubmit = async function (event) {
+todoAppForm.onsubmit = function (event) {
     event.preventDefault();
     const formData = {
         title: inputElement.value,
@@ -56,7 +40,6 @@ todoAppForm.onsubmit = async function (event) {
         duaDate: $("#taskDate").value,
         cardColor: $("#taskColor").value,
         isCompleted: false,
-        createdAt: new Date(),
     };
     //Nếu có editIndex -> Thực hiện logic sửa
     if (editIndex !== null && editIndex !== undefined) {
@@ -67,15 +50,8 @@ todoAppForm.onsubmit = async function (event) {
             showToast("Tiêu đề đã tồn tại, hãy dùng tên khác!", "warning");
             return;
         }
-        const task = todoTasks[editIndex];
-
-        await fetch(`http://localhost:3000/tasks/${task.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(formData),
-        });
-
         todoTasks[editIndex] = formData;
+        saveTasks();
         renderTasks();
         closeModal();
         showToast("Cập nhật task thành công!", "success");
@@ -89,14 +65,9 @@ todoAppForm.onsubmit = async function (event) {
             }
         });
         if (checkTitle) {
-            const response = await fetch(`http://localhost:3000/tasks`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData),
-            });
-
-            const newTask = await response.json();
-            todoTasks.unshift(newTask);
+            todoTasks.unshift(formData);
+            // Lưu toàn bộ danh sách vào localStorage.
+            saveTasks();
             renderTasks();
             closeModal();
             showToast("Thêm task thành công", "success");
@@ -116,7 +87,7 @@ function showToast(message, type = "error") {
     }, 3000);
 }
 //edit: Khi nhấn edit sẽ hiện ra modal đã chứa sẵn thông tin tương ứng của task đó
-todoGrid.onclick = async function (event) {
+todoGrid.onclick = function (event) {
     const editBtn = event.target.closest(".edit-btn");
     const deleteBtn = event.target.closest(".delete-btn");
     const completeBtn = event.target.closest(".complete-btn");
@@ -153,39 +124,20 @@ todoGrid.onclick = async function (event) {
         const task = todoTasks[taskIndex];
         if (confirm(`Bạn chắc chắn muốn xoá công việc này không?`)) {
             todoTasks.splice(taskIndex, 1);
-            await fetch(`http://localhost:3000/tasks/${task.id}`, {
-                method: "DELETE",
-            });
-            renderTasksByTab();
+            saveTasks();
+            renderTasks();
         }
     }
 
     // Completed
     if (completeBtn) {
-        const taskId = completeBtn.dataset.id;
-        const taskIndex = todoTasks.findIndex((t) => t.id == taskId);
+        const taskIndex = completeBtn.dataset.index;
         const task = todoTasks[taskIndex];
         task.isCompleted = !task.isCompleted;
-        await fetch(`http://localhost:3000/tasks/${task.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ isCompleted: task.isCompleted }),
-        });
-        await loadTasks();
-        renderTasksByTab();
+        saveTasks();
+        renderTasks();
     }
 };
-function renderTasksByTab() {
-    if (currentTab === "all") {
-        renderTasks();
-    } else if (currentTab === "active") {
-        const activeTasks = todoTasks.filter((t) => !t.isCompleted);
-        renderTasks(activeTasks);
-    } else if (currentTab === "completed") {
-        const completedTasks = todoTasks.filter((t) => t.isCompleted);
-        renderTasks(completedTasks);
-    }
-}
 //Tim kiem va hien thi cac task co lien quan
 todoSearch.oninput = function (event) {
     //Chuyển về tab All khi search
@@ -214,20 +166,17 @@ todoSearch.oninput = function (event) {
     }
 };
 //Loc Task
-let currentTab = "all";
 tabList.onclick = function (event) {
     const allBtn = event.target.closest(".all-btn");
     const activeBtn = event.target.closest(".active-btn");
     const completedBtn = event.target.closest(".completed-btn");
 
     if (allBtn) {
-        currentTab = "all";
         activeTarget(allBtn);
         renderTasks();
     }
 
     if (activeBtn) {
-        currentTab = "active";
         activeTarget(activeBtn);
         const taskActive = todoTasks.filter((task) => {
             return !task.isCompleted;
@@ -236,7 +185,6 @@ tabList.onclick = function (event) {
     }
 
     if (completedBtn) {
-        currentTab = "completed";
         activeTarget(completedBtn);
         const taskCompleted = todoTasks.filter((task) => {
             return task.isCompleted;
@@ -253,24 +201,25 @@ function activeTarget(target) {
     allTabs.forEach((btn) => btn.classList.remove("active"));
     target.className = `${target.className} active`;
 }
-async function renderTasks(tasks = todoTasks) {
-    const html = tasks
-        .map(
-            (task, index) => `<div class="task-card ${escapeHTML(
-                task.cardColor
-            )} ${task.isCompleted ? "completed" : ""}">
+function renderTasks() {
+    fetch(`http://localhost:3000/tasks`)
+        .then((res) => res.json())
+        .then((result) => {
+            const html = result
+                .map(
+                    (task, index) => `<div class="task-card ${escapeHTML(
+                        task.cardColor
+                    )} ${task.isCompleted ? "completed" : ""}">
                 <div class="task-header">
                     <h3 class="task-title">${escapeHTML(task.title)}</h3>
                     <button class="task-menu">
                         <i class="fa-solid fa-ellipsis fa-icon"></i>
                         <div class="dropdown-menu">
-                            <div class="dropdown-item edit-btn" data-id="${index}">
+                            <div class="dropdown-item edit-btn" data-index="${index}">
                                 <i class="fa-solid fa-pen-to-square fa-icon"></i>
                                 Edit
                             </div>
-                            <div class="dropdown-item complete complete-btn" data-id="${
-                                task.id
-                            }">
+                            <div class="dropdown-item complete complete-btn" data-index="${index}">
                                 <i class="fa-solid fa-check fa-icon"></i>
                                 Mark as ${
                                     task.isCompleted ? "Active" : "Complete"
@@ -286,10 +235,11 @@ async function renderTasks(tasks = todoTasks) {
                 <p class="task-description">${escapeHTML(task.description)}</p>
                 <div class="task-time">${task.startTime} - ${task.endTime}</div>
             </div>`
-        )
-        .join("");
-    const todoList = $(`.task-grid`);
-    todoList.innerHTML = html;
+                )
+                .join("");
+            const todoList = $(`.task-grid`);
+            todoList.innerHTML = html;
+        });
 }
 function closeModal() {
     addTaskModal.classList.toggle("show");
@@ -319,7 +269,9 @@ function closeModal() {
     // Reset editIndex (căn cứ để bt form đang ở trạng thái sửa hay thêm).
     editIndex = null;
 }
-
+function saveTasks() {
+    localStorage.setItem("todoTasks", JSON.stringify(todoTasks));
+}
 // Dong modal khi click vao nut create hoac cancel
 modalClose.onclick = function (event) {
     event.preventDefault();
@@ -347,6 +299,7 @@ function escapeHTML(html) {
 }
 
 const modal = $(".modal");
+console.log(modal);
 addTaskModal.onclick = function (e) {
     if (!e.target.closest(".modal")) {
         this.classList.toggle("show");
